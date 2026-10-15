@@ -611,6 +611,13 @@ class Config:
     )
 
     # Embeddings
+    embedding_provider: str = field(
+        default_factory=lambda: (
+            _get("models", "embedding", {}).get("provider", "fastembed")
+            if isinstance(_get("models", "embedding", {}), dict)
+            else "fastembed"
+        )
+    )
     embedding_model: str = field(
         default_factory=lambda: (
             _get("models", "embedding", {}).get("model", "BAAI/bge-small-en-v1.5")
@@ -623,6 +630,13 @@ class Config:
             _get("models", "embedding", {}).get("dimensions", 384)
             if isinstance(_get("models", "embedding", {}), dict)
             else 384
+        )
+    )
+    openai_api_key: Optional[str] = field(
+        default_factory=lambda: (
+            _get("models", "embedding", {}).get("api_key", None)
+            if isinstance(_get("models", "embedding", {}), dict)
+            else None
         )
     )
     # GPU acceleration mode: "auto" (default) | "true" | "false" | "directml".
@@ -843,6 +857,7 @@ class Config:
 
     def __post_init__(self):
         """Validate config values and ensure directories exist."""
+        self._validate_embedding_provider()
         self._validate_chunking()
         self._validate_indexing()
         self._resolve_embedding_profile()
@@ -854,6 +869,16 @@ class Config:
         self._validate_fts5()
         self._warn_missing_documents_dir()
         self._ensure_directories()
+
+    def _validate_embedding_provider(self) -> None:
+        """Accept only fastembed (default) or openai."""
+        valid_providers = ("fastembed", "openai")
+        if self.embedding_provider not in valid_providers:
+            print(
+                f"[WARN] embedding_provider={self.embedding_provider!r} invalid, using 'fastembed'",
+                file=sys.stderr,
+            )
+            self.embedding_provider = "fastembed"
 
     def _validate_chunking(self) -> None:
         """Bound-check chunk_size / chunk_overlap / default_results / max_results."""
